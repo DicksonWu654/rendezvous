@@ -38,6 +38,8 @@ export interface RendezvousConfig {
   regr?: boolean;
   /** Path to custom dialers file. */
   dial?: string;
+  /** Report the contract state before a failure. */
+  snapshot?: boolean;
 }
 
 /**
@@ -149,6 +151,13 @@ const validateConfig = (
     config.dial = obj.dial;
   }
 
+  if ("snapshot" in obj) {
+    if (typeof obj.snapshot !== "boolean") {
+      throw new Error(`"snapshot" must be a boolean.`);
+    }
+    config.snapshot = obj.snapshot;
+  }
+
   const knownKeys = new Set([
     "accounts",
     "accounts_mode",
@@ -157,6 +166,7 @@ const validateConfig = (
     "bail",
     "regr",
     "dial",
+    "snapshot",
   ]);
   const unknownKeys = Object.keys(obj).filter((k) => !knownKeys.has(k));
 

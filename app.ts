@@ -143,6 +143,7 @@ export const main = async () => {
         radio,
         eligibleAccounts,
         allAddresses,
+        runConfig.snapshot,
       );
       break;
     }
@@ -160,6 +161,7 @@ export const main = async () => {
         radio,
         eligibleAccounts,
         allAddresses,
+        runConfig.snapshot,
       );
       break;
     }

@@ -8,7 +8,7 @@ import { dim, green, red, underline, yellow } from "ansicolor";
 import fc from "fast-check";
 
 import { reporter } from "./heatstroke";
-import type { Statistics } from "./heatstroke.types";
+import type { RunDetails, Statistics } from "./heatstroke.types";
 import { strategyFor } from "./lib";
 import {
   getFailureFilePath,
@@ -21,6 +21,7 @@ import {
   getFunctionsListForContract,
   LOG_DIVIDER,
 } from "./shared";
+import { reportStateBeforeFailure } from "./snapshot";
 import {
   buildTraitReferenceMap,
   enrichInterfaceWithTraitData,
@@ -45,6 +46,7 @@ import {
  * @param radio The custom logging event emitter.
  * @param eligibleAccounts The resolved eligible accounts map (name to address).
  * @param allAddresses All resolved addresses for principal type generation.
+ * @param snapshot Whether to report the contract state before a failure.
  * @returns void
  */
 export const checkProperties = async (
@@ -59,6 +61,7 @@ export const checkProperties = async (
   radio: EventEmitter,
   eligibleAccounts: Map<string, string>,
   allAddresses: string[],
+  snapshot = false,
 ) => {
   // A map where the keys are the test contract identifiers and the values are
   // arrays of their test functions. This map will be used to access the test
@@ -195,6 +198,31 @@ export const checkProperties = async (
     return;
   }
 
+  /**
+   * Runs a property test and, with `snapshot`, replays a failure to report
+   * the contract state before it.
+   */
+  const runPropertyTest = async (
+    config: PropertyTestConfig & PropertyTestContext,
+  ) => {
+    const runDetails = await propertyTest(config);
+    if (snapshot) {
+      await reportStateBeforeFailure(
+        runDetails,
+        rendezvousContractId,
+        resetSession,
+        (replayRadio, recorder) =>
+          propertyTest({
+            ...config,
+            bail: true,
+            radio: replayRadio,
+            recorder,
+          }),
+        radio,
+      );
+    }
+  };
+
   if (regr) {
     // Run regression tests only.
     radio.emit(
@@ -228,7 +256,7 @@ export const checkProperties = async (
 
       await resetSession();
 
-      await propertyTest({
+      await runPropertyTest({
         simnet,
         targetContractName,
         rendezvousContractId,
@@ -252,7 +280,7 @@ export const checkProperties = async (
       `Starting fresh round of property testing for the ${targetContractName} contract using user-provided configuration...\n`,
     );
 
-    await propertyTest({
+    await runPropertyTest({
       simnet,
       targetContractName,
       rendezvousContractId,
@@ -272,11 +300,12 @@ export const checkProperties = async (
  * Runs a property test.
  * @param config The union of the configuration and context for the property
  * test.
- * @returns A promise that resolves when the property test is complete.
+ * @returns A promise that resolves to the run details when the property test
+ * is complete.
  */
 const propertyTest = async (
   config: PropertyTestConfig & PropertyTestContext,
-) => {
+): Promise<RunDetails> => {
   const {
     simnet,
     targetContractName,
@@ -289,6 +318,7 @@ const propertyTest = async (
     allAddresses,
     testFunctions,
     testContractsPairedFunctions,
+    recorder,
   } = config;
 
   // Pre-build one fast-check arbitrary per test function via the public
@@ -313,11 +343,14 @@ const propertyTest = async (
     statistics.test!.failed.set(functionInterface.name, 0);
   }
 
+  let result: RunDetails | undefined = undefined;
   const radioReporter = async (runDetails: any) => {
+    result = runDetails;
     reporter(runDetails, radio, "test", statistics);
 
-    // Persist failures for regression testing.
-    if (runDetails.failed) {
+    // Persist failures for regression testing. A replay to record the
+    // state repeats a failure that is already saved.
+    if (runDetails.failed && recorder === undefined) {
       persistFailure(
         runDetails,
         "test",
@@ -372,6 +405,7 @@ const propertyTest = async (
             .map((burnBlocks) => ({ ...r, ...burnBlocks })),
         ),
       async (r) => {
+        recorder?.startRun();
         const printedTestFunctionArgs = r.functionArgs
           .map((cv) => cvToString(cv))
           .join(" ");
@@ -407,6 +441,11 @@ const propertyTest = async (
           );
         } else {
           try {
+            recorder?.record(
+              simnet,
+              r.rendezvousContractId,
+              r.selectedTestFunction.name,
+            );
             // If the function call results in a runtime error, the error will
             // be caught and logged as a test failure in the catch block.
             const { result: testFunctionCallResult } = simnet.callPrivateFn(
@@ -520,6 +559,7 @@ const propertyTest = async (
       verbose: true,
     },
   );
+  return result!;
 };
 
 /**

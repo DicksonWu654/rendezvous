@@ -25,6 +25,7 @@ export const helpMessage = `
     --seed=<n>    Seed for replay functionality
     --runs=<n>    Number of test iterations [default: 100]
     --dial=<f>    Path to custom dialers file
+    --snapshot    Report contract state before a failure
     --regr        Run regression tests only
     --bail        Stop on first failure
     -h, --help    Show this message
@@ -44,6 +45,7 @@ export interface RunConfig {
   bail: boolean;
   regr: boolean;
   dial: string | undefined;
+  snapshot: boolean;
   accounts: ConfigAccount[] | undefined;
   accountsMode: AccountsMode;
   configPath: string | undefined;
@@ -69,6 +71,7 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       seed: { type: "string" },
       runs: { type: "string" },
       dial: { type: "string" },
+      snapshot: { type: "boolean" },
       bail: { type: "boolean" },
       regr: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -123,6 +126,7 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       options.bail && "--bail",
       options.regr && "--regr",
       options.dial && "--dial",
+      options.snapshot && "--snapshot",
     ].filter(Boolean) as string[];
 
     if (ignoredFlags.length > 0) {
@@ -140,6 +144,7 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       bail: fileConfig.bail ?? false,
       regr: fileConfig.regr ?? false,
       dial: fileConfig.dial,
+      snapshot: fileConfig.snapshot ?? false,
       accounts: fileConfig.accounts,
       accountsMode: fileConfig.accounts_mode ?? "overwrite",
       configPath: options.config,
@@ -168,6 +173,7 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     bail: options.bail ?? false,
     regr: options.regr ?? false,
     dial: options.dial,
+    snapshot: options.snapshot ?? false,
     accounts: undefined,
     accountsMode: "overwrite",
     configPath: undefined,
@@ -201,6 +207,9 @@ export const logRunConfig = (
   }
   if (config.dial !== undefined) {
     radio.emit("logMessage", `Using dial path: ${config.dial}`);
+  }
+  if (config.snapshot) {
+    radio.emit("logMessage", "Reporting contract state before a failure.");
   }
   if (config.configPath) {
     radio.emit("logMessage", `Using config file: ${config.configPath}`);
