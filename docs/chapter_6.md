@@ -580,6 +580,8 @@ In this case, if `n <= 1`, the test **discards itself** by returning `(ok false)
 
 In general, **in-place discarding is preferred** because it keeps test logic together and is easier to maintain. Use a **discard function** only when it's important to prevent execution entirely.
 
+Discarded cases do not count as checks. If a test has no passing case at the end of a run, because all of its cases were discarded or it was never selected, Rendezvous prints a warning that names the test instead of reporting that the properties passed. The same applies to an invariant that was never selected during invariant testing.
+
 ## Custom Manifest Files
 
 Some smart contracts need a special `Clarinet.toml` file to allow Rendezvous to create state transitions in the contract. Rendezvous supports this feature by **automatically searching for `Clarinet-<target-contract-name>.toml` first**. This allows you to use test doubles while keeping tests easy to manage.

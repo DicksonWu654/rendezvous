@@ -531,6 +531,10 @@ const invariantTest = async (
             ) {
               throw error;
             } else {
+              statistics.sut!.failed.set(
+                selectedFunction.name,
+                statistics.sut!.failed.get(selectedFunction.name)! + 1,
+              );
               const displayedError =
                 error &&
                 typeof error === "string" &&
@@ -623,6 +627,10 @@ const invariantTest = async (
           // Log errors that aren't already handled as falsified invariants.
           // This prevents duplicate error messages for the same failure.
           if (!(error instanceof FalsifiedInvariantError)) {
+            statistics.invariant!.failed.set(
+              r.selectedInvariant.name,
+              statistics.invariant!.failed.get(r.selectedInvariant.name)! + 1,
+            );
             radio.emit(
               "logMessage",
               red(

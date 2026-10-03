@@ -184,14 +184,34 @@ export const reporter = (
     // scripts, CI systems, and other tools that check process exit status.
     process.exitCode = 1;
   } else {
-    radio.emit(
-      "logMessage",
-      green(
-        `\nOK, ${
-          type === "invariant" ? "invariants" : "properties"
-        } passed after ${numRuns} runs.\n`,
-      ),
-    );
+    // A test or invariant without a passing check was never exercised, so do
+    // not report it as passed. Discarded cases are not checks, and random
+    // selection can skip a function entirely in short runs.
+    const checks =
+      type === "invariant" ? statistics.invariant : statistics.test;
+    const unchecked = [...(checks?.successful ?? [])]
+      .filter(([, count]) => count === 0)
+      .map(([name]) => name);
+
+    if (unchecked.length > 0) {
+      const reason =
+        type === "invariant"
+          ? "They were never selected."
+          : "They were never selected or all of their cases were discarded.";
+      radio.emit(
+        "logInfo",
+        `\nWarning: not checked after ${numRuns} runs: ${unchecked.join(", ")}.\n${reason}\n`,
+      );
+    } else {
+      radio.emit(
+        "logMessage",
+        green(
+          `\nOK, ${
+            type === "invariant" ? "invariants" : "properties"
+          } passed after ${numRuns} runs.\n`,
+        ),
+      );
+    }
   }
   reportStatistics(statistics, type, radio);
   radio.emit("logMessage", "\n");

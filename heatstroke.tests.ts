@@ -800,3 +800,63 @@ describe("Custom reporter logging", () => {
     });
   });
 });
+
+describe("Unchecked tests and invariants reporting", () => {
+  const report = (type: "test" | "invariant", checks: [string, number][]) => {
+    const logs: string[] = [];
+    const radio = new EventEmitter();
+    radio.on("logMessage", (message: string) => logs.push(message));
+    radio.on("logInfo", (message: string) => logs.push(message));
+    const zero = new Map(checks.map(([name]) => [name, 0]));
+    const counts = { successful: new Map(checks), failed: zero };
+    const originalExitCode = process.exitCode;
+    try {
+      reporter(
+        { failed: false, counterexample: [], numRuns: 5, seed: 1 },
+        radio,
+        type,
+        type === "test"
+          ? { test: { ...counts, discarded: zero } }
+          : { invariant: counts, sut: counts },
+      );
+      return {
+        logs: logs.join("\n"),
+        exitCodeChanged: process.exitCode !== originalExitCode,
+      };
+    } finally {
+      process.exitCode = originalExitCode;
+    }
+  };
+
+  it("warns instead of passing when a test has no passing checks", () => {
+    const { logs, exitCodeChanged } = report("test", [
+      ["test-a", 5],
+      ["test-b", 0],
+    ]);
+    expect(logs).toContain(
+      "Warning: not checked after 5 runs: test-b.\nThey were never selected or all of their cases were discarded.",
+    );
+    expect(logs).not.toContain("OK, properties passed");
+    expect(exitCodeChanged).toBe(false);
+  });
+
+  it("warns instead of passing when an invariant was never selected", () => {
+    const { logs } = report("invariant", [
+      ["invariant-a", 5],
+      ["invariant-b", 0],
+    ]);
+    expect(logs).toContain(
+      "Warning: not checked after 5 runs: invariant-b.\nThey were never selected.",
+    );
+    expect(logs).not.toContain("OK, invariants passed");
+  });
+
+  it("reports a pass when every test and invariant was checked", () => {
+    expect(report("test", [["test-a", 5]]).logs).toContain(
+      "OK, properties passed after 5 runs.",
+    );
+    expect(report("invariant", [["invariant-a", 5]]).logs).toContain(
+      "OK, invariants passed after 5 runs.",
+    );
+  });
+});
