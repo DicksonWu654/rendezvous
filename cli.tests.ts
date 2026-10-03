@@ -233,4 +233,68 @@ describe("CLI parsing with parseCli", () => {
     const config = parseCli(["./example", "counter", "test", "--seed=42"])!;
     expect(config.warnings).toEqual([]);
   });
+
+  it("reads an optional pattern after the type", () => {
+    expect(parseCli(["./example", "reverse", "test"])!.pattern).toBeUndefined();
+    expect(
+      parseCli(["./example", "reverse", "test", "test-reverse-*"])!.pattern,
+    ).toBe("test-reverse-*");
+  });
+
+  it("rejects more than one pattern", () => {
+    // A pattern expanded by the shell becomes several arguments.
+    expect(() =>
+      parseCli(["./example", "reverse", "test", "test-a", "test-b"]),
+    ).toThrow('Unexpected argument: "test-b".');
+  });
+
+  it("keeps the pattern when --config is provided", () => {
+    // Arrange
+    const tempDir = join(tmpdir(), "rendezvous-test-parsecli-pattern");
+    mkdirSync(tempDir, { recursive: true });
+    const configPath = join(tempDir, "rv.config.json");
+    writeFileSync(configPath, JSON.stringify({ seed: 1 }), "utf-8");
+
+    // Act
+    const config = parseCli([
+      "./example",
+      "reverse",
+      "test",
+      "test-reverse-?int",
+      `--config=${configPath}`,
+    ])!;
+
+    // Assert
+    expect(config.pattern).toBe("test-reverse-?int");
+    expect(config.seed).toBe(1);
+    expect(config.warnings).toEqual([]);
+
+    // Teardown
+    rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it("rejects a pattern for regression tests", () => {
+    // Arrange
+    const tempDir = join(tmpdir(), "rendezvous-test-parsecli-pattern-regr");
+    mkdirSync(tempDir, { recursive: true });
+    const configPath = join(tempDir, "rv.config.json");
+    writeFileSync(configPath, JSON.stringify({ regr: true }), "utf-8");
+
+    // Act & Assert
+    expect(() =>
+      parseCli(["./example", "reverse", "test", "test-*", "--regr"]),
+    ).toThrow("A pattern cannot be used with regression tests.");
+    expect(() =>
+      parseCli([
+        "./example",
+        "reverse",
+        "test",
+        "test-*",
+        `--config=${configPath}`,
+      ]),
+    ).toThrow("A pattern cannot be used with regression tests.");
+
+    // Teardown
+    rmSync(tempDir, { recursive: true, force: true });
+  });
 });

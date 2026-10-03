@@ -20,6 +20,7 @@ import {
   getContractNameFromContractId,
   getFunctionsListForContract,
   LOG_DIVIDER,
+  matchesPattern,
 } from "./shared";
 import {
   buildTraitReferenceMap,
@@ -45,6 +46,7 @@ import {
  * @param radio The custom logging event emitter.
  * @param eligibleAccounts The resolved eligible accounts map (name to address).
  * @param allAddresses All resolved addresses for principal type generation.
+ * @param pattern Only run the test functions whose names match it.
  * @returns void
  */
 export const checkProperties = async (
@@ -59,12 +61,14 @@ export const checkProperties = async (
   radio: EventEmitter,
   eligibleAccounts: Map<string, string>,
   allAddresses: string[],
+  pattern?: string,
 ) => {
   // A map where the keys are the test contract identifiers and the values are
   // arrays of their test functions. This map will be used to access the test
   // functions for each test contract in the property-based testing routine.
   const testContractsTestFunctions = filterTestFunctions(
     rendezvousAllFunctions,
+    pattern,
   );
 
   const rendezvousContractId = rendezvousList[0];
@@ -78,6 +82,15 @@ export const checkProperties = async (
 
   const targetContractName =
     getContractNameFromContractId(rendezvousContractId);
+
+  if (pattern !== undefined && allTestFunctions.length === 0) {
+    radio.emit(
+      "logFailure",
+      `\nNo test functions match "${pattern}" in the "${targetContractName}" contract.\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
 
   const traitReferenceMap = buildTraitReferenceMap(allTestFunctions);
   const enrichedTestFunctionsInterfaces =
@@ -224,7 +237,23 @@ export const checkProperties = async (
         regression.seed,
         regression.numRuns,
         regression.timestamp,
+        regression.pattern,
       );
+
+      // Replay with the same functions as the run that found the failure.
+      const regressionTestFunctions = testFunctions.filter(
+        ({ name }) =>
+          regression.pattern === undefined ||
+          matchesPattern(name, regression.pattern),
+      );
+      if (regressionTestFunctions.length === 0) {
+        radio.emit(
+          "logFailure",
+          `No test functions match "${regression.pattern}". Skipping this regression.\n`,
+        );
+        process.exitCode = 1;
+        continue;
+      }
 
       await resetSession();
 
@@ -241,7 +270,8 @@ export const checkProperties = async (
         radio,
         eligibleAccounts,
         allAddresses,
-        testFunctions,
+        pattern: regression.pattern,
+        testFunctions: regressionTestFunctions,
         testContractsPairedFunctions,
       });
     }
@@ -262,6 +292,7 @@ export const checkProperties = async (
       radio,
       eligibleAccounts,
       allAddresses,
+      pattern,
       testFunctions,
       testContractsPairedFunctions,
     });
@@ -287,6 +318,7 @@ const propertyTest = async (
     radio,
     eligibleAccounts,
     allAddresses,
+    pattern,
     testFunctions,
     testContractsPairedFunctions,
   } = config;
@@ -324,6 +356,8 @@ const propertyTest = async (
         rendezvousContractId,
         // No dialers in property-based testing.
         undefined,
+        undefined,
+        pattern,
       );
     }
   };
@@ -558,6 +592,7 @@ const emitPropertyRegressionTestHeader = (
   seed: number,
   numRuns: number,
   timestamp: number,
+  pattern: string | undefined,
 ) => {
   radio.emit("logMessage", LOG_DIVIDER);
   radio.emit(
@@ -569,18 +604,22 @@ Running ${underline(
 
 - Seed: ${seed}
 - Runs: ${numRuns}
-`,
+${pattern === undefined ? "" : `- Pattern: ${pattern}\n`}`,
   );
 };
 
 const filterTestFunctions = (
   allFunctionsMap: Map<string, ContractInterfaceFunction[]>,
+  pattern: string | undefined,
 ) =>
   new Map(
     Array.from(allFunctionsMap, ([contractId, functions]) => [
       contractId,
       functions.filter(
-        (f) => f.access === "private" && f.name.startsWith("test-"),
+        (f) =>
+          f.access === "private" &&
+          f.name.startsWith("test-") &&
+          (pattern === undefined || matchesPattern(f.name, pattern)),
       ),
     ]),
   );

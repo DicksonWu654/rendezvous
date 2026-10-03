@@ -45,7 +45,7 @@ This chapter explains how to use Rendezvous in different situations. By the end,
 To run Rendezvous, use the following command:
 
 ```bash
-rv <path-to-clarinet-project> <contract-name> <type> [--config] [--seed] [--runs] [--regr] [--bail] [--dial]
+rv <path-to-clarinet-project> <contract-name> <type> [pattern] [--config] [--seed] [--runs] [--regr] [--bail] [--dial]
 ```
 
 Let's break down each part of the command.
@@ -133,6 +133,28 @@ With this command, Rendezvous will:
 - **Randomly check the defined invariants** to ensure the contract's internal state remains valid.
 
 If an invariant check fails, it means the contract's state has **deviated from expected behavior**, revealing potential bugs.
+
+**4. Function Name Pattern (optional)**
+
+To focus on some of the tests in a large suite, add a pattern after the testing type. Only the test functions whose names match it are run:
+
+```bash
+rv ./root contract test 'test-transfer-*'
+```
+
+The pattern must match the whole function name. `*` matches any number of characters, `?` matches exactly one character, and all other characters match themselves. For example, `test-?oo` matches `test-foo` and `test-boo`, but not `test-fooo`.
+
+For invariant tests, the pattern selects the invariant functions to check. All public functions are still called, so the contract state evolves as usual:
+
+```bash
+rv ./root contract invariant 'invariant-supply-*'
+```
+
+Quote the pattern, so that the shell does not expand `*` or `?` into file names. Rendezvous accepts a single pattern and exits with an error if it gets more arguments.
+
+If no function matches the pattern, Rendezvous reports it and exits with code 1, so a mistyped pattern cannot pass silently.
+
+The pattern is a positional argument, so it also applies when a config file is used. Failures found with a pattern are saved with it, and `--regr` replays each saved failure with its own pattern (see **Regression Testing** below). For this reason, a pattern cannot be combined with `--regr`.
 
 ### Options
 
@@ -341,6 +363,7 @@ Each failure record includes:
 - `numRuns` – Number of test iterations needed for the failure to occur
 - `timestamp` – When the failure was discovered (Unix timestamp in milliseconds)
 - `dial` (optional) – Path to the dialer file used during the test
+- `pattern` (optional) – The function name pattern used during the test. Regression tests are replayed with the same pattern.
 
 Failures are sorted by timestamp in descending order, with the most recent failures first.
 
@@ -394,6 +417,8 @@ The `accounts` field lets you define custom accounts for testing. By default (`"
 
 Rendezvous warns if the config file contains unrecognized keys (e.g. a typo like `"sedd"` instead of `"seed"`), and also warns if CLI flags are passed alongside `--config`.
 
+Positional arguments, including the optional function name pattern, always come from the command line, also when a config file is used.
+
 ### Summary
 
 | Argument/Option              | Description                                                                      | Example                                           |
@@ -401,6 +426,7 @@ Rendezvous warns if the config file contains unrecognized keys (e.g. a typo like
 | `<path-to-clarinet-project>` | Path to the Clarinet project (where `Clarinet.toml` is located).                 | `rv root contract test`                           |
 | `<contract-name>`            | Name of the contract to test (as in `Clarinet.toml`).                            | `rv root contract test`                           |
 | `<type>`                     | Type of test (`test` for property-based tests, `invariant` for invariant tests). | `rv root contract test`                           |
+| `[pattern]`                  | Only runs the tests or invariants whose names match (`*` and `?` wildcards).     | `rv root contract test 'test-foo*'`               |
 | `--runs=<num>`               | Sets the number of test iterations (default: 100).                               | `rv root contract test --runs=500`                |
 | `--seed=<num>`               | Uses a specific seed for reproducibility.                                        | `rv root contract test --seed=12345`              |
 | `--regr`                     | Run regression tests only (replay saved failures).                               | `rv root contract test --regr`                    |

@@ -13,6 +13,8 @@ interface FailureRecord {
   numRuns: number;
   /** The path to the dialer file used for this test run */
   dial: string | undefined;
+  /** The function name pattern used for this test run */
+  pattern?: string;
   /** Timestamp when the failure was recorded */
   timestamp: number;
 }
@@ -98,6 +100,7 @@ const saveFailureStore = (
  * @param contractId The contract identifier being tested
  * @param dial The path to the dialer file used for this test run
  * @param config Optional configuration for persistence behavior
+ * @param pattern The function name pattern used for this test run
  */
 export const persistFailure = (
   runDetails: RunDetails,
@@ -105,6 +108,7 @@ export const persistFailure = (
   contractId: string,
   dial: string | undefined,
   config?: PersistenceConfig,
+  pattern?: string,
 ): void => {
   const { baseDir } = { ...DEFAULT_CONFIG, ...config };
 
@@ -116,13 +120,16 @@ export const persistFailure = (
     dial: dial,
     numRuns: runDetails.numRuns,
     timestamp: Date.now(),
+    pattern,
   };
 
   // Get the array for this test type.
   const failures = store[type];
 
-  // Check if this seed already exists.
-  const seedExists = failures.some((f) => f.seed === record.seed);
+  // Check if this seed already exists for the same pattern.
+  const seedExists = failures.some(
+    (f) => f.seed === record.seed && f.pattern === record.pattern,
+  );
   if (seedExists) {
     // Already recorded.
     return;

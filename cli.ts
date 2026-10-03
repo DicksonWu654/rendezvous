@@ -13,12 +13,13 @@ import { LOG_DIVIDER } from "./shared";
 export const helpMessage = `
   rv v${version}
 
-  Usage: rv <path> <contract> <type> [OPTIONS]
+  Usage: rv <path> <contract> <type> [pattern] [OPTIONS]
 
   Arguments:
     <path>        Path to the Clarinet project
     <contract>    Contract name to fuzz
     <type>        Test type: test | invariant
+    [pattern]     Only run matching tests or invariants (* and ?)
 
   Options:
     --config=<f>  Path to config file (JSON)
@@ -39,6 +40,7 @@ export interface RunConfig {
   manifestDir: string;
   sutContractName: string;
   type: "test" | "invariant";
+  pattern: string | undefined;
   seed: number | undefined;
   runs: number | undefined;
   bail: boolean;
@@ -93,7 +95,8 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     }
   }
 
-  const [manifestDir, sutContractName, type] = positionalArgs;
+  const [manifestDir, sutContractName, type, pattern, ...extraArgs] =
+    positionalArgs;
 
   if (!manifestDir) {
     throw new Error(
@@ -114,6 +117,12 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     );
   }
 
+  if (extraArgs.length > 0) {
+    throw new Error(
+      `Unexpected argument: "${extraArgs[0]}". Only one pattern is supported. Quote the pattern so the shell does not expand it.`,
+    );
+  }
+
   // If a config file is provided, use its values exclusively.
   // Otherwise, use CLI options.
   if (options.config) {
@@ -131,10 +140,13 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       );
     }
 
+    checkPatternWithRegr(pattern, fileConfig.regr);
+
     return {
       manifestDir,
       sutContractName,
       type: normalizedType as "test" | "invariant",
+      pattern,
       seed: fileConfig.seed,
       runs: fileConfig.runs,
       bail: fileConfig.bail ?? false,
@@ -159,10 +171,13 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     );
   }
 
+  checkPatternWithRegr(pattern, options.regr);
+
   return {
     manifestDir,
     sutContractName,
     type: normalizedType as "test" | "invariant",
+    pattern,
     seed,
     runs,
     bail: options.bail ?? false,
@@ -173,6 +188,21 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     configPath: undefined,
     warnings: [],
   };
+};
+
+/**
+ * Saved regressions are replayed with the pattern they were found with, so
+ * a new pattern cannot be combined with them.
+ */
+const checkPatternWithRegr = (
+  pattern: string | undefined,
+  regr: boolean | undefined,
+) => {
+  if (pattern !== undefined && regr) {
+    throw new Error(
+      "A pattern cannot be used with regression tests. Saved regressions are replayed with the pattern they were found with.",
+    );
+  }
 };
 
 /**
@@ -187,6 +217,9 @@ export const logRunConfig = (
   radio.emit("logMessage", `Using manifest path: ${manifestPath}`);
   radio.emit("logMessage", `Target contract: ${config.sutContractName}`);
 
+  if (config.pattern !== undefined) {
+    radio.emit("logMessage", `Using pattern: ${config.pattern}`);
+  }
   if (config.seed !== undefined) {
     radio.emit("logMessage", `Using seed: ${config.seed}`);
   }

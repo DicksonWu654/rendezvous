@@ -1,6 +1,7 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { stripVTControlCharacters } from "node:util";
 
 import { red } from "ansicolor";
 
@@ -535,6 +536,150 @@ describe("Contract selection", () => {
     vi.restoreAllMocks();
     rmSync(tempDir, { recursive: true, force: true });
   });
+});
+
+describe("Function name patterns", () => {
+  const initialArgv = process.argv;
+  const initialCwd = process.cwd();
+  const initialExitCode = process.exitCode;
+  let project = "";
+  let logs: string[] = [];
+
+  /** Runs the CLI in-process and returns the checked function names. */
+  const run = async (args: string[]) => {
+    logs = [];
+    for (const method of ["log", "error"] as const) {
+      vi.spyOn(console, method).mockImplementation((message: string) => {
+        logs.push(stripVTControlCharacters(String(message)));
+      });
+    }
+    process.argv = ["node", "app.js", project, ...args];
+    await main();
+    vi.restoreAllMocks();
+    const checked = logs.flatMap(
+      (log) => log.match(/\[(?:PASS|WARN|FAIL)\] \S+ (\S+)/)?.[1] ?? [],
+    );
+    return new Set(checked);
+  };
+
+  beforeEach(() => {
+    project = mkdtempSync(join(tmpdir(), isolatedTestEnvPrefix));
+    mkdirSync(join(project, "contracts"));
+    cpSync(
+      resolve(__dirname, "example", "settings"),
+      join(project, "settings"),
+      { recursive: true },
+    );
+    writeFileSync(
+      join(project, "Clarinet.toml"),
+      `[project]
+name = "patterns"
+telemetry = false
+
+[contracts.patterns]
+path = "contracts/patterns.clar"
+clarity_version = 3
+epoch = 3.0
+`,
+    );
+    writeFileSync(
+      join(project, "contracts", "patterns.clar"),
+      `(define-data-var counter uint u0)
+
+(define-map context (string-ascii 100) { called: uint })
+
+(define-private (update-context (function-name (string-ascii 100))
+    (called uint))
+  (ok (map-set context function-name { called: called })))
+
+(define-public (increment)
+  (ok (var-set counter (+ (var-get counter) u1))))
+
+(define-read-only (invariant-holds) true)
+
+(define-read-only (invariant-breaks) false)
+
+(define-private (test-passes) (ok true))
+
+(define-private (test-fails) (err u1))
+`,
+    );
+    // Keep saved regressions inside the temporary project.
+    process.chdir(project);
+    process.exitCode = undefined;
+  });
+
+  afterEach(() => {
+    process.chdir(initialCwd);
+    process.argv = initialArgv;
+    process.exitCode = initialExitCode;
+    vi.restoreAllMocks();
+    rmSync(project, { recursive: true, force: true });
+  });
+
+  it.each([
+    ["test", "test-p*", "test-passes"],
+    ["invariant", "invariant-h?lds", "invariant-holds"],
+  ])(
+    "runs only the %s functions matching %s",
+    async (type, pattern, expected) => {
+      // Act
+      const checked = await run(["patterns", type, pattern, "--runs=20"]);
+
+      // Assert
+      expect(checked).toEqual(new Set([expected]));
+      expect(logs).toContain(`Using pattern: ${pattern}`);
+      expect(process.exitCode).toBeUndefined();
+    },
+  );
+
+  it("keeps all public functions as invariant actions", async () => {
+    // Act
+    await run(["patterns", "invariant", "invariant-holds", "--runs=20"]);
+
+    // Assert
+    expect(logs.some((log) => / patterns increment /.test(log))).toBe(true);
+  });
+
+  it.each([
+    ["test", "test-nothing*"],
+    ["invariant", "invariant-nothing*"],
+  ])("fails when no %s function matches", async (type, pattern) => {
+    // Act
+    const checked = await run(["patterns", type, pattern]);
+
+    // Assert
+    expect(checked.size).toBe(0);
+    expect(logs).toContain(
+      `\nNo ${type} functions match "${pattern}" in the "patterns" contract.\n`,
+    );
+    expect(process.exitCode).toBe(1);
+  });
+
+  it.each([
+    ["test", "test-f*", "test-fails"],
+    ["invariant", "invariant-b*", "invariant-breaks"],
+  ])(
+    "replays %s regressions with their saved pattern",
+    async (type, pattern, expected) => {
+      // Arrange: find and save a failure with a pattern.
+      expect(await run(["patterns", type, pattern, "--bail"])).toEqual(
+        new Set([expected]),
+      );
+      expect(process.exitCode).toBe(1);
+      process.exitCode = undefined;
+
+      // Act
+      const checked = await run(["patterns", type, "--regr"]);
+
+      // Assert
+      expect(logs.some((log) => log.includes(`- Pattern: ${pattern}`))).toBe(
+        true,
+      );
+      expect(checked).toEqual(new Set([expected]));
+      expect(process.exitCode).toBe(1);
+    },
+  );
 });
 
 describe("Custom manifest detection", () => {

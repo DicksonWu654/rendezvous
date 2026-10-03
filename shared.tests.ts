@@ -9,6 +9,7 @@ import {
   getFunctionsFromContractInterfaces,
   getFunctionsListForContract,
   getSimnetDeployerContractsInterfaces,
+  matchesPattern,
 } from "./shared";
 import { createIsolatedTestEnvironment } from "./test.utils";
 
@@ -122,5 +123,27 @@ describe("Contract identifier parsing", () => {
         },
       ),
     );
+  });
+});
+
+describe("Function name patterns", () => {
+  it.each([
+    ["test-foo", "test-foo*", true],
+    ["test-foobar", "test-foo*", true],
+    ["test-foo", "test-?oo", true],
+    ["test-boo", "test-?oo", true],
+    ["test-fooo", "test-?oo", false],
+    // The pattern must match the whole name.
+    ["test-foo", "test-fo", false],
+    ["other-test-foo", "test-foo*", false],
+    // Other characters, including regular expression syntax, are literal.
+    ["test-a.b", "test-a.b", true],
+    ["test-axb", "test-a.b", false],
+    ["test-ab", "test-a+b", false],
+    ["test-(a)[b]{c}|^$\\", "test-(a)[b]{c}|^$\\", true],
+    // A name with `*` or `?` still matches itself.
+    ["test-valid?", "test-valid?", true],
+  ])("matches %s against %s: %s", (name, pattern, expected) => {
+    expect(matchesPattern(name, pattern)).toBe(expected);
   });
 });

@@ -17,6 +17,8 @@ export interface PropertyTestConfig {
   radio: EventEmitter;
   eligibleAccounts: Map<string, string>;
   allAddresses: string[];
+  /** The function name pattern, saved with failures for regressions. */
+  pattern: string | undefined;
 }
 
 /**

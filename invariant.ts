@@ -30,6 +30,7 @@ import {
   getContractNameFromContractId,
   getFunctionsListForContract,
   LOG_DIVIDER,
+  matchesPattern,
 } from "./shared";
 import type { EnrichedContractInterfaceFunction } from "./shared.types";
 import {
@@ -57,6 +58,7 @@ import {
  * @param radio The custom logging event emitter.
  * @param eligibleAccounts The resolved eligible accounts map.
  * @param allAddresses All resolved addresses for principal type generation.
+ * @param pattern Only check the invariants whose names match it.
  * @returns void
  */
 export const checkInvariants = async (
@@ -72,6 +74,7 @@ export const checkInvariants = async (
   radio: EventEmitter,
   eligibleAccounts: Map<string, string>,
   allAddresses: string[],
+  pattern?: string,
 ) => {
   // The Rendezvous identifier is the first one in the list. Only one contract
   // can be fuzzed at a time.
@@ -87,6 +90,7 @@ export const checkInvariants = async (
   // invariant functions for each Rendezvous contract afterwards.
   const rendezvousInvariantFunctions = filterInvariantFunctions(
     rendezvousAllFunctions,
+    pattern,
   );
 
   const sutFunctions = rendezvousSutFunctions.get(rendezvousContractId)!;
@@ -101,6 +105,16 @@ export const checkInvariants = async (
 
   const targetContractName =
     getContractNameFromContractId(rendezvousContractId);
+
+  if (pattern !== undefined && invariantFunctions.length === 0) {
+    radio.emit(
+      "logFailure",
+      `\nNo invariant functions match "${pattern}" in the "${targetContractName}" contract.\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
   const sutTraitReferenceMap = buildTraitReferenceMap(sutFunctions);
   const invariantTraitReferenceMap = buildTraitReferenceMap(invariantFunctions);
 
@@ -237,7 +251,23 @@ export const checkInvariants = async (
         regression.numRuns,
         regression.dial,
         regression.timestamp,
+        regression.pattern,
       );
+
+      // Replay with the same invariants as the run that found the failure.
+      const regressionInvariants = invariants.filter(
+        ({ name }) =>
+          regression.pattern === undefined ||
+          matchesPattern(name, regression.pattern),
+      );
+      if (regressionInvariants.length === 0) {
+        radio.emit(
+          "logFailure",
+          `No invariant functions match "${regression.pattern}". Skipping this regression.\n`,
+        );
+        process.exitCode = 1;
+        continue;
+      }
 
       await resetSession();
 
@@ -252,8 +282,9 @@ export const checkInvariants = async (
         radio,
         eligibleAccounts,
         allAddresses,
+        pattern: regression.pattern,
         functions,
-        invariants,
+        invariants: regressionInvariants,
       });
     }
   } else {
@@ -274,6 +305,7 @@ export const checkInvariants = async (
       radio,
       eligibleAccounts,
       allAddresses,
+      pattern,
       functions,
       invariants,
     });
@@ -300,6 +332,7 @@ const invariantTest = async (
     radio,
     eligibleAccounts,
     allAddresses,
+    pattern,
     functions,
     invariants,
   } = config;
@@ -355,7 +388,14 @@ const invariantTest = async (
 
     // Persist failures for regression testing.
     if (runDetails.failed) {
-      persistFailure(runDetails, "invariant", rendezvousContractId, dial);
+      persistFailure(
+        runDetails,
+        "invariant",
+        rendezvousContractId,
+        dial,
+        undefined,
+        pattern,
+      );
     }
   };
 
@@ -762,13 +802,16 @@ const filterSutFunctions = (
 
 const filterInvariantFunctions = (
   allFunctionsMap: Map<string, ContractInterfaceFunction[]>,
+  pattern: string | undefined,
 ) =>
   new Map(
     Array.from(allFunctionsMap, ([contractId, functions]) => [
       contractId,
       functions.filter(
         ({ access, name }) =>
-          access === "read_only" && name.startsWith("invariant-"),
+          access === "read_only" &&
+          name.startsWith("invariant-") &&
+          (pattern === undefined || matchesPattern(name, pattern)),
       ),
     ]),
   );
@@ -788,6 +831,7 @@ const emitInvariantRegressionTestHeader = (
   numRuns: number,
   dial: string | undefined,
   timestamp: number,
+  pattern: string | undefined,
 ) => {
   radio.emit("logMessage", LOG_DIVIDER);
   radio.emit(
@@ -800,6 +844,6 @@ Running ${underline(
 - Seed: ${seed}
 - Runs: ${numRuns}
 - Dial: ${dial ?? "none (default)"}
-`,
+${pattern === undefined ? "" : `- Pattern: ${pattern}\n`}`,
   );
 };

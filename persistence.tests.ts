@@ -411,6 +411,66 @@ describe("Failure Persistence", () => {
     });
   });
 
+  describe("Function name patterns", () => {
+    it("saves the pattern with the failure only when one is used", () => {
+      // Arrange
+      const baseDir = createTemporaryCustomTestBaseDir("pattern");
+
+      // Act
+      persistFailure(
+        createMockRunDetails(1),
+        "test",
+        TEST_CONTRACT_ID,
+        undefined,
+        { baseDir },
+      );
+      persistFailure(
+        createMockRunDetails(2),
+        "test",
+        TEST_CONTRACT_ID,
+        undefined,
+        { baseDir },
+        "test-foo*",
+      );
+
+      // Assert
+      const failures = loadFailures(TEST_CONTRACT_ID, "test", { baseDir });
+      expect(failures.find((f) => f.seed === 1)).not.toHaveProperty("pattern");
+      expect(failures.find((f) => f.seed === 2)!.pattern).toBe("test-foo*");
+
+      // Teardown
+      rmSync(baseDir, { recursive: true, force: true });
+    });
+
+    it("keeps the same seed for different patterns", () => {
+      // Arrange
+      const baseDir = createTemporaryCustomTestBaseDir("pattern-seed");
+
+      // Act
+      for (const pattern of [undefined, "test-a*", "test-b*", "test-b*"]) {
+        persistFailure(
+          createMockRunDetails(7),
+          "test",
+          TEST_CONTRACT_ID,
+          undefined,
+          { baseDir },
+          pattern,
+        );
+      }
+
+      // Assert
+      const failures = loadFailures(TEST_CONTRACT_ID, "test", { baseDir });
+      expect(failures.map((f) => f.pattern).sort()).toEqual([
+        "test-a*",
+        "test-b*",
+        undefined,
+      ]);
+
+      // Teardown
+      rmSync(baseDir, { recursive: true, force: true });
+    });
+  });
+
   describe("Loading Failures", () => {
     it("returns empty array when no failures exist", () => {
       fc.assert(

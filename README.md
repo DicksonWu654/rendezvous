@@ -34,7 +34,7 @@ npm install @stacks/rendezvous
 ### Usage
 
 ```
-npx rv <path-to-clarinet-project> <contract-name> <type>
+npx rv <path-to-clarinet-project> <contract-name> <type> [pattern]
 ```
 
 ---
@@ -48,6 +48,11 @@ npx rv <path-to-clarinet-project> <contract-name> <type>
 - `type` - Type of test to run. Options:
   - `test` - Run property-based tests.
   - `invariant` - Run invariant tests.
+- `pattern` (optional) - Only run the test functions, or check the invariants,
+  whose names match the pattern. `*` matches any characters and `?` matches
+  one character. Quote the pattern so the shell does not expand it, e.g.
+  `rv example reverse test 'test-reverse-*'`. If nothing matches, the run
+  fails with exit code 1.
 
 **Options:**
 

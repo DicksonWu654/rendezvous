@@ -407,5 +407,28 @@ const complexTypesToCV: ComplexTypesToCV = {
 const isBaseType = (type: EnrichedParameterType): type is EnrichedBaseType =>
   ["int128", "uint128", "bool", "principal"].includes(type as EnrichedBaseType);
 
+/**
+ * Checks whether a function name matches a pattern. The pattern must match
+ * the whole name: `*` matches any characters, `?` matches one character and
+ * all other characters match themselves.
+ * @param name The function name.
+ * @param pattern The pattern, e.g. `test-foo*`.
+ * @returns A boolean indicating if the name matches.
+ */
+export const matchesPattern = (name: string, pattern: string): boolean => {
+  const source = [...pattern]
+    .map((char) => {
+      if (char === "*") {
+        return ".*";
+      }
+      if (char === "?") {
+        return ".";
+      }
+      return char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    })
+    .join("");
+  return new RegExp(`^${source}$`, "u").test(name);
+};
+
 export const getContractNameFromContractId = (contractId: string): string =>
   contractId.split(".")[1];
