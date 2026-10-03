@@ -95,6 +95,8 @@ jobs:
           rv . cargo invariant
           rv . reverse test
           rv . slice test
+          rv . vault test
+          rv . vault invariant
           rv . self-listing-helper-v3a test
           rv . self-listing-helper-v3a invariant
           rv . rendezvous-token invariant --dial=./sip010.cjs
