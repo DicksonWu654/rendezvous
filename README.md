@@ -137,7 +137,7 @@ fc.assert(
 ```
 
 - `getContractFunction(simnet, contract, fn, deployer?)` — retrieves a function interface, enriched with trait data.
-- `strategyFor(simnet, fn, allAddresses?, projectTraitImplementations?)` — returns an `fc.Arbitrary<ClarityValue[]>` ready for use with `simnet.callPublicFn`, `simnet.callReadOnlyFn`, or `simnet.callPrivateFn`. `allAddresses` restricts the principal pool (defaults to every account in the simnet); `projectTraitImplementations` reuses a precomputed trait map (defaults to extracting it from the simnet).
+- `strategyFor(simnet, fn, allAddresses?, projectTraitImplementations?, options?)` — returns an `fc.Arbitrary<ClarityValue[]>` ready for use with `simnet.callPublicFn`, `simnet.callReadOnlyFn`, or `simnet.callPrivateFn`. `allAddresses` restricts the principal pool (defaults to every account in the simnet); `projectTraitImplementations` reuses a precomputed trait map (defaults to extracting it from the simnet); `options` supplies custom generators, each with a sampler, for named arguments or argument types (see [Custom Generators](https://stx-labs.github.io/rendezvous/chapter_9.html#custom-generators)).
 
 ---
 

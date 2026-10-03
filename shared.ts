@@ -304,7 +304,7 @@ export const argsToCV = (
  * @param type Argument type (base or complex).
  * @returns Clarity value.
  */
-const argToCV = (
+export const argToCV = (
   generatedArgument: any,
   type: EnrichedParameterType,
 ): ClarityValue => {

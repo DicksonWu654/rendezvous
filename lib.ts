@@ -3,6 +3,11 @@ import type { ContractInterfaceFunction } from "@stacks/clarinet-sdk-wasm";
 import type { ClarityValue } from "@stacks/transactions";
 import fc from "fast-check";
 
+import {
+  customStrategyFor,
+  hasCustomGenerators,
+  type StrategyOptions,
+} from "./generators";
 import { argsToCV, functionToArbitrary } from "./shared";
 import type { EnrichedContractInterfaceFunction } from "./shared.types";
 import {
@@ -13,6 +18,14 @@ import {
 } from "./traits";
 import type { ImplementedTraitType } from "./traits.types";
 
+export { GeneratorValidationError, sampleClarityGenerator } from "./generators";
+export type {
+  ClarityGenerator,
+  ClarityGeneratorSampler,
+  GeneratorSampleParameters,
+  GeneratorType,
+  StrategyOptions,
+} from "./generators";
 export type { EnrichedContractInterfaceFunction } from "./shared.types";
 
 /**
@@ -89,6 +102,9 @@ export const getContractFunction = (
  * @param projectTraitImplementations Optional project/requirement contracts
  *   keyed by the traits they implement. Defaults to extracting them from the
  *   simnet.
+ * @param options Optional custom generators for named arguments or argument
+ *   types. Each one needs a sampler and is validated before use. Without
+ *   custom generators, the default generators are used unchanged.
  * @returns A fast-check arbitrary producing Clarity argument arrays.
  *
  * @example
@@ -119,10 +135,20 @@ export const strategyFor = (
   fn: EnrichedContractInterfaceFunction,
   allAddresses?: string[],
   projectTraitImplementations?: Record<string, ImplementedTraitType[]>,
+  options?: StrategyOptions,
 ): fc.Arbitrary<ClarityValue[]> => {
   const resolvedAddresses = allAddresses ?? [...simnet.getAccounts().values()];
   const resolvedTraitImplementations =
     projectTraitImplementations ?? extractProjectTraitImplementations(simnet);
+
+  if (options && hasCustomGenerators(options)) {
+    return customStrategyFor(
+      fn,
+      resolvedAddresses,
+      resolvedTraitImplementations,
+      options,
+    );
+  }
 
   const arbitraries = functionToArbitrary(
     fn,
