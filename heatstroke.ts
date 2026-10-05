@@ -202,6 +202,7 @@ export const reporter = (
         "logInfo",
         `\nWarning: not checked after ${numRuns} runs: ${unchecked.join(", ")}.\n${reason}\n`,
       );
+      radio.emit("unchecked", unchecked);
     } else {
       radio.emit(
         "logMessage",
