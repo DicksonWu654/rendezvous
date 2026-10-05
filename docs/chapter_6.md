@@ -389,24 +389,62 @@ A config file is a JSON object with optional fields:
 | `bail`          | boolean          | Stop on first failure.                                  |
 | `regr`          | boolean          | Run regression tests only.                              |
 | `dial`          | string           | Path to custom dialers file.                            |
+| `coverage`      | boolean          | Report line and branch coverage.                        |
+| `coverage_json` | string           | Save coverage totals and curve as JSON.                 |
+| `coverage_lcov` | string           | Save merged line and branch LCOV.                       |
 
 The `accounts` field lets you define custom accounts for testing. By default (`"overwrite"` mode), these replace the Devnet.toml accounts entirely. With `"concatenate"` mode, config accounts are merged with the existing Devnet accounts — if a name appears in both, the config account's address takes precedence.
 
 Rendezvous warns if the config file contains unrecognized keys (e.g. a typo like `"sedd"` instead of `"seed"`), and also warns if CLI flags are passed alongside `--config`.
 
+**7. Reporting Coverage**
+
+Use `--coverage` to see how much of the Clarity code a run exercised:
+
+```bash
+rv root contract invariant --coverage
+```
+
+At the end of the run, Rendezvous prints the number of covered lines and
+branches, followed by the counts for each file the run reached:
+
+```
+Coverage: 19/831 lines, 3/257 branches in 0.833 s.
+  contracts/counter.clar: 19/34 lines, 3/8 branches
+```
+
+The totals include the project's contracts, test functions and
+called contracts, but not boot contracts. Without `--coverage`, coverage
+tracking stays disabled.
+
+To keep the results, add `--coverage-lcov` for merged LCOV records, or
+`--coverage-json` for per-file totals and a curve of coverage increases:
+
+```bash
+rv root contract invariant --coverage \
+  --coverage-lcov=coverage.lcov --coverage-json=coverage.json
+```
+
+`--coverage-json` collects coverage after every run, so it is slower than
+`--coverage` alone. Coverage shows which code ran, not whether a property
+or invariant checks it correctly.
+
 ### Summary
 
-| Argument/Option              | Description                                                                      | Example                                           |
-| ---------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------- |
-| `<path-to-clarinet-project>` | Path to the Clarinet project (where `Clarinet.toml` is located).                 | `rv root contract test`                           |
-| `<contract-name>`            | Name of the contract to test (as in `Clarinet.toml`).                            | `rv root contract test`                           |
-| `<type>`                     | Type of test (`test` for property-based tests, `invariant` for invariant tests). | `rv root contract test`                           |
-| `--runs=<num>`               | Sets the number of test iterations (default: 100).                               | `rv root contract test --runs=500`                |
-| `--seed=<num>`               | Uses a specific seed for reproducibility.                                        | `rv root contract test --seed=12345`              |
-| `--regr`                     | Run regression tests only (replay saved failures).                               | `rv root contract test --regr`                    |
-| `--bail`                     | Stop after the first failure.                                                    | `rv root contract test --bail`                    |
-| `--dial=<file>`              | Loads JavaScript dialers from a file for pre/post-processing.                    | `rv root contract test --dial=./custom-dialer.js` |
-| `--config=<file>`            | Uses a JSON config file for all run options.                                     | `rv root contract test --config=rv.config.json`   |
+| Argument/Option              | Description                                                                      | Example                                                     |
+| ---------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `<path-to-clarinet-project>` | Path to the Clarinet project (where `Clarinet.toml` is located).                 | `rv root contract test`                                     |
+| `<contract-name>`            | Name of the contract to test (as in `Clarinet.toml`).                            | `rv root contract test`                                     |
+| `<type>`                     | Type of test (`test` for property-based tests, `invariant` for invariant tests). | `rv root contract test`                                     |
+| `--runs=<num>`               | Sets the number of test iterations (default: 100).                               | `rv root contract test --runs=500`                          |
+| `--seed=<num>`               | Uses a specific seed for reproducibility.                                        | `rv root contract test --seed=12345`                        |
+| `--regr`                     | Run regression tests only (replay saved failures).                               | `rv root contract test --regr`                              |
+| `--bail`                     | Stop after the first failure.                                                    | `rv root contract test --bail`                              |
+| `--dial=<file>`              | Loads JavaScript dialers from a file for pre/post-processing.                    | `rv root contract test --dial=./custom-dialer.js`           |
+| `--config=<file>`            | Uses a JSON config file for all run options.                                     | `rv root contract test --config=rv.config.json`             |
+| `--coverage`                 | Reports line and branch coverage.                                                | `rv root contract test --coverage`                          |
+| `--coverage-json=<file>`     | Saves coverage totals and curve as JSON (requires `--coverage`).                 | `rv root contract test --coverage --coverage-json=cov.json` |
+| `--coverage-lcov=<file>`     | Saves merged LCOV (requires `--coverage`).                                       | `rv root contract test --coverage --coverage-lcov=cov.lcov` |
 
 ---
 

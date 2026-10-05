@@ -38,6 +38,11 @@ export interface RendezvousConfig {
   regr?: boolean;
   /** Path to custom dialers file. */
   dial?: string;
+  /** Enable opt-in line and branch coverage reporting. */
+  coverage?: boolean;
+  /** Optional coverage outputs, relative to the working directory. */
+  coverage_json?: string;
+  coverage_lcov?: string;
 }
 
 /**
@@ -149,6 +154,25 @@ const validateConfig = (
     config.dial = obj.dial;
   }
 
+  if ("coverage" in obj) {
+    if (typeof obj.coverage !== "boolean") {
+      throw new Error(`"coverage" must be a boolean.`);
+    }
+    config.coverage = obj.coverage;
+  }
+
+  for (const key of ["coverage_json", "coverage_lcov"] as const) {
+    if (key in obj) {
+      if (typeof obj[key] !== "string" || obj[key].length === 0) {
+        throw new Error(`"${key}" must be a non-empty string.`);
+      }
+      config[key] = obj[key];
+    }
+  }
+  if (!config.coverage && (config.coverage_json || config.coverage_lcov)) {
+    throw new Error("Coverage outputs require coverage: true.");
+  }
+
   const knownKeys = new Set([
     "accounts",
     "accounts_mode",
@@ -157,6 +181,9 @@ const validateConfig = (
     "bail",
     "regr",
     "dial",
+    "coverage",
+    "coverage_json",
+    "coverage_lcov",
   ]);
   const unknownKeys = Object.keys(obj).filter((k) => !knownKeys.has(k));
 

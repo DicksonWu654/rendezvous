@@ -7,6 +7,7 @@ import { cvToJSON, cvToString, type ClarityValue } from "@stacks/transactions";
 import { dim, green, red, underline, yellow } from "ansicolor";
 import fc from "fast-check";
 
+import { observedAsyncProperty } from "./coverage";
 import { reporter } from "./heatstroke";
 import type { Statistics } from "./heatstroke.types";
 import { strategyFor } from "./lib";
@@ -328,8 +329,9 @@ const propertyTest = async (
     }
   };
 
+  const asyncProperty = observedAsyncProperty(radio);
   await fc.assert(
-    fc.asyncProperty(
+    asyncProperty(
       fc
         .record({
           rendezvousContractId: fc.constant(rendezvousContractId),

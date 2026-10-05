@@ -25,6 +25,9 @@ export const helpMessage = `
     --seed=<n>    Seed for replay functionality
     --runs=<n>    Number of test iterations [default: 100]
     --dial=<f>    Path to custom dialers file
+    --coverage    Report line and branch coverage
+    --coverage-json=<f>  Save coverage and its curve as JSON
+    --coverage-lcov=<f>  Save merged line and branch LCOV
     --regr        Run regression tests only
     --bail        Stop on first failure
     -h, --help    Show this message
@@ -44,6 +47,9 @@ export interface RunConfig {
   bail: boolean;
   regr: boolean;
   dial: string | undefined;
+  coverage: boolean;
+  coverageJson: string | undefined;
+  coverageLcov: string | undefined;
   accounts: ConfigAccount[] | undefined;
   accountsMode: AccountsMode;
   configPath: string | undefined;
@@ -69,6 +75,9 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       seed: { type: "string" },
       runs: { type: "string" },
       dial: { type: "string" },
+      coverage: { type: "boolean" },
+      "coverage-json": { type: "string" },
+      "coverage-lcov": { type: "string" },
       bail: { type: "boolean" },
       regr: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -123,6 +132,9 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       options.bail && "--bail",
       options.regr && "--regr",
       options.dial && "--dial",
+      options.coverage && "--coverage",
+      options["coverage-json"] && "--coverage-json",
+      options["coverage-lcov"] && "--coverage-lcov",
     ].filter(Boolean) as string[];
 
     if (ignoredFlags.length > 0) {
@@ -140,6 +152,9 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
       bail: fileConfig.bail ?? false,
       regr: fileConfig.regr ?? false,
       dial: fileConfig.dial,
+      coverage: fileConfig.coverage ?? false,
+      coverageJson: fileConfig.coverage_json,
+      coverageLcov: fileConfig.coverage_lcov,
       accounts: fileConfig.accounts,
       accountsMode: fileConfig.accounts_mode ?? "overwrite",
       configPath: options.config,
@@ -159,6 +174,19 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     );
   }
 
+  if (
+    (options["coverage-json"] !== undefined ||
+      options["coverage-lcov"] !== undefined) &&
+    !options.coverage
+  ) {
+    throw new Error("Coverage outputs require --coverage.");
+  }
+  for (const key of ["coverage-json", "coverage-lcov"] as const) {
+    if (options[key] === "") {
+      throw new Error(`"${key}" must be a non-empty string.`);
+    }
+  }
+
   return {
     manifestDir,
     sutContractName,
@@ -168,6 +196,9 @@ export const parseCli = (argv: string[]): RunConfig | undefined => {
     bail: options.bail ?? false,
     regr: options.regr ?? false,
     dial: options.dial,
+    coverage: options.coverage ?? false,
+    coverageJson: options["coverage-json"],
+    coverageLcov: options["coverage-lcov"],
     accounts: undefined,
     accountsMode: "overwrite",
     configPath: undefined,
@@ -192,6 +223,9 @@ export const logRunConfig = (
   }
   if (config.runs !== undefined) {
     radio.emit("logMessage", `Using runs: ${config.runs}`);
+  }
+  if (config.coverage) {
+    radio.emit("logMessage", "Coverage tracking enabled.");
   }
   if (config.bail) {
     radio.emit("logMessage", `Bailing on first failure.`);
