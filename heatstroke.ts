@@ -217,7 +217,8 @@ export const reporter = (
           : "They were never selected or all of their cases were discarded.";
       radio.emit(
         "logInfo",
-        `\nWarning: not checked after ${numRuns} runs: ${unchecked.join(", ")}.\n${reason}\n`,
+        `\nWarning: not checked after ${numRuns} runs: ` +
+          `${unchecked.join(", ")}.\n${reason}\n`,
       );
       radio.emit("unchecked", unchecked);
     } else if (!allCallsThrew) {

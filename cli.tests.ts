@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -58,8 +58,9 @@ describe("CLI parsing with parseCli", () => {
   });
 
   it("reads fail_on_unchecked from the config file", () => {
-    const tempDir = join(tmpdir(), "rendezvous-test-fail-on-unchecked");
-    mkdirSync(tempDir, { recursive: true });
+    const tempDir = mkdtempSync(
+      join(tmpdir(), "rendezvous-test-fail-on-unchecked-"),
+    );
     const configPath = join(tempDir, "rv.config.json");
     writeFileSync(
       configPath,

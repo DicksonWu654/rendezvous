@@ -42,7 +42,10 @@ epoch = 3.0
     `[network]
 name = "devnet"
 [accounts.deployer]
-mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
+mnemonic = "${
+      "abandon abandon abandon abandon abandon abandon " +
+      "abandon abandon abandon abandon abandon about"
+    }"
 balance = 100000000000000
 `,
   );
@@ -60,8 +63,9 @@ balance = 100000000000000
   try {
     const simnet = await initSimnet(manifestPath);
     const contractId = `${simnet.deployer}.fixture`;
+    const contractInterface = simnet.getContractsInterfaces().get(contractId)!;
     const functions = getFunctionsFromContractInterfaces(
-      new Map([[contractId, simnet.getContractsInterfaces().get(contractId)!]]),
+      new Map([[contractId, contractInterface]]),
     );
     const accounts = new Map([["deployer", simnet.deployer]]);
     const resetSession = async () => {
@@ -112,7 +116,8 @@ describe("Property testing outcomes", () => {
     ["in-place discards", "(define-private (test-discard) (ok false))"],
     [
       "a discard function",
-      "(define-read-only (can-test-discard) false) (define-private (test-discard) (err u1))",
+      "(define-read-only (can-test-discard) false) " +
+        "(define-private (test-discard) (err u1))",
     ],
   ])(
     "does not report a test as passed when %s skip every case",
@@ -129,7 +134,8 @@ describe("Property testing outcomes", () => {
 
   it("does not let a passing test hide an unchecked test", async () => {
     const result = await run(
-      "(define-private (test-pass) (ok true)) (define-private (test-discard) (ok false))",
+      "(define-private (test-pass) (ok true)) " +
+        "(define-private (test-discard) (ok false))",
     );
     expect(result.exitCode).toBe(0);
     expect(result.logs).toContain(
@@ -153,7 +159,8 @@ describe("Property testing outcomes", () => {
     ],
     [
       "a runtime error in the discard function",
-      "(define-read-only (can-test-fail) (is-eq (/ u1 u0) u0)) (define-private (test-fail) (ok true))",
+      "(define-read-only (can-test-fail) (is-eq (/ u1 u0) u0)) " +
+        "(define-private (test-fail) (ok true))",
     ],
   ])("counts %s as a single failure when bailing", async (_, source) => {
     const result = await run(source);
@@ -164,7 +171,8 @@ describe("Property testing outcomes", () => {
 });
 
 const context = `(define-map context (string-ascii 100) uint)
-(define-private (update-context (name (string-ascii 100)) (calls uint)) (ok (map-set context name calls)))`;
+(define-private (update-context (name (string-ascii 100)) (calls uint))
+  (ok (map-set context name calls)))`;
 
 describe("Invariant testing outcomes", () => {
   it.each([
@@ -204,7 +212,9 @@ describe("Invariant testing outcomes", () => {
 
   it("reports all-thrown public calls as inconclusive", async () => {
     const result = await run(
-      `${context} (define-public (touch) (ok (/ u1 u0))) (define-read-only (invariant-pass) true)`,
+      `${context}
+(define-public (touch) (ok (/ u1 u0)))
+(define-read-only (invariant-pass) true)`,
       "invariant",
     );
     expect(result.exitCode).toBe(0);

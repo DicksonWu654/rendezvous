@@ -837,7 +837,8 @@ describe("Unchecked tests and invariants reporting", () => {
       ["test-b", 0],
     ]);
     expect(logs).toContain(
-      "Warning: not checked after 5 runs: test-b.\nThey were never selected or all of their cases were discarded.",
+      "Warning: not checked after 5 runs: test-b.\n" +
+        "They were never selected or all of their cases were discarded.",
     );
     expect(logs).not.toContain("OK, properties passed");
     expect(unchecked).toEqual([["test-b"]]);
@@ -850,7 +851,8 @@ describe("Unchecked tests and invariants reporting", () => {
       ["invariant-b", 0],
     ]);
     expect(logs).toContain(
-      "Warning: not checked after 5 runs: invariant-b.\nThey were never selected.",
+      "Warning: not checked after 5 runs: invariant-b.\n" +
+        "They were never selected.",
     );
     expect(logs).not.toContain("OK, invariants passed");
   });
