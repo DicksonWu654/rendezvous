@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -84,8 +84,7 @@ describe("CLI parsing with parseCli", () => {
   });
 
   it("takes coverage only from the config when --config is provided", () => {
-    const dir = join(tmpdir(), "rendezvous-test-coverage-cli");
-    mkdirSync(dir, { recursive: true });
+    const dir = mkdtempSync(join(tmpdir(), "rendezvous-test-coverage-cli-"));
     const configPath = join(dir, "rv.config.json");
     try {
       writeFileSync(configPath, JSON.stringify({ coverage: false }));
