@@ -226,6 +226,7 @@ export const checkInvariants = async (
         (replayRadio, recorder) =>
           invariantTest({
             ...config,
+            seed: runDetails.seed,
             bail: true,
             radio: replayRadio,
             recorder,
