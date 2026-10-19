@@ -185,6 +185,23 @@ describe("Invariant testing outcomes", () => {
     },
   );
 
+  it("keeps successful calls when updating the context throws", async () => {
+    const result = await run(
+      `(define-map context (string-ascii 100) uint)
+(define-private (update-context (name (string-ascii 100)) (calls uint))
+  (ok (map-set context name (/ u1 (if (> calls u0) u0 u1)))))
+(define-public (touch) (ok true))
+(define-read-only (invariant-pass) true)`,
+      "invariant",
+    );
+    expect(result.logs).toMatch(/SUCCESSFUL[\s│└─]*touch: x99/);
+    expect(result.logs).toMatch(/IGNORED[\s│└─]*touch: x0/);
+    expect(result.logs).toContain("Could not update context for touch:");
+    expect(result.logs).toContain("DivisionByZero");
+    expect(result.logs).toContain("OK, invariants passed after 20 runs.");
+    expect(result.exitCode).toBe(0);
+  });
+
   it("counts public function runtime errors as ignored calls", async () => {
     const result = await run(
       `${context} (define-public (touch) (ok (/ u1 u0))) (define-read-only (invariant-pass) true)`,

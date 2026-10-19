@@ -468,19 +468,24 @@ const invariantTest = async (
                 selectedFunction.name,
                 statistics.sut!.successful.get(selectedFunction.name)! + 1,
               );
-              localContext[r.rendezvousContractId][selectedFunction.name]++;
+              const calls = ++localContext[r.rendezvousContractId][
+                selectedFunction.name
+              ];
 
-              simnet.callPrivateFn(
-                r.rendezvousContractId,
-                "update-context",
-                [
-                  Cl.stringAscii(selectedFunction.name),
-                  Cl.uint(
-                    localContext[r.rendezvousContractId][selectedFunction.name],
-                  ),
-                ],
-                simnet.deployer,
-              );
+              try {
+                simnet.callPrivateFn(
+                  r.rendezvousContractId,
+                  "update-context",
+                  [Cl.stringAscii(selectedFunction.name), Cl.uint(calls)],
+                  simnet.deployer,
+                );
+              } catch (error) {
+                radio.emit(
+                  "logInfo",
+                  `Could not update context for ${selectedFunction.name}: ` +
+                    String(error),
+                );
+              }
 
               // Function call passed.
               radio.emit(
