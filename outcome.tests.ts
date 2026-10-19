@@ -202,13 +202,40 @@ describe("Invariant testing outcomes", () => {
     expect(result.exitCode).toBe(0);
   });
 
-  it("counts public function runtime errors as ignored calls", async () => {
+  it("reports all-thrown public calls as inconclusive", async () => {
     const result = await run(
       `${context} (define-public (touch) (ok (/ u1 u0))) (define-read-only (invariant-pass) true)`,
       "invariant",
     );
     expect(result.exitCode).toBe(0);
     expect(result.logs).toMatch(/IGNORED[\s│└─]*touch: x[1-9]/);
+    expect(result.logs).toContain(
+      "Warning: inconclusive after 20 runs: every public call threw.",
+    );
+    expect(result.logs).not.toContain("OK, invariants passed");
+    expect(result.persisted).toBe(0);
+  });
+
+  it.each([
+    ["returned errors", "(define-public (reject) (err u1))"],
+    [
+      "returned errors and throws",
+      `(define-public (reject) (err u1))
+(define-public (explode) (ok (/ u1 u0)))`,
+    ],
+    [
+      "successes and throws",
+      `(define-public (touch) (ok true))
+(define-public (explode) (ok (/ u1 u0)))`,
+    ],
+  ])("keeps %s distinct from an all-thrown campaign", async (_, calls) => {
+    const result = await run(
+      `${context} ${calls} (define-read-only (invariant-pass) true)`,
+      "invariant",
+    );
+    expect(result.exitCode).toBe(0);
     expect(result.logs).toContain("OK, invariants passed after 20 runs.");
+    expect(result.logs).not.toContain("Warning:");
+    expect(result.persisted).toBe(0);
   });
 });

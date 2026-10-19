@@ -567,6 +567,54 @@ describe("Fail on unchecked tests", () => {
   );
 });
 
+describe("Inconclusive invariant campaigns", () => {
+  it.each([false, true])("fails only in strict mode (%j)", async (strict) => {
+    const tempDir = createIsolatedTestEnvironment(
+      resolve(__dirname, "example"),
+      isolatedTestEnvPrefix,
+    );
+    const initialArgv = process.argv;
+    const initialExitCode = process.exitCode;
+    try {
+      writeFileSync(
+        join(tempDir, "contracts/counter.clar"),
+        `(define-private (update-context (name (string-ascii 100))
+                                       (calls uint)) (ok true))
+(define-public (explode) (ok (/ u1 u0)))
+(define-read-only (invariant-pass) true)`,
+      );
+      process.argv = [
+        "node",
+        "app.js",
+        tempDir,
+        "counter",
+        "invariant",
+        "--seed=17",
+        "--runs=20",
+        ...(strict ? ["--fail-on-unchecked"] : []),
+      ];
+      const logs: string[] = [];
+      for (const method of ["log", "info", "error"] as const) {
+        vi.spyOn(console, method).mockImplementation((message: string) => {
+          logs.push(message);
+        });
+      }
+      process.exitCode = undefined;
+      await main();
+      expect(logs.join("\n")).toContain(
+        "Warning: inconclusive after 20 runs: every public call threw.",
+      );
+      expect(logs.join("\n")).not.toContain("OK, invariants passed");
+      expect(process.exitCode).toBe(strict ? 1 : undefined);
+    } finally {
+      process.exitCode = initialExitCode;
+      process.argv = initialArgv;
+      vi.restoreAllMocks();
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("Contract selection", () => {
   const initialArgv = process.argv;
 

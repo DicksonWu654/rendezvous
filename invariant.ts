@@ -329,6 +329,7 @@ const invariantTest = async (
 
   const statistics: Statistics = {
     sut: {
+      thrown: 0,
       successful: new Map<string, number>(),
       failed: new Map<string, number>(),
     },
@@ -445,12 +446,18 @@ const invariantTest = async (
           }
 
           try {
-            const functionCall = simnet.callPublicFn(
-              r.rendezvousContractId,
-              selectedFunction.name,
-              r.selectedFunctionsArgsList[index],
-              sutCallerAddress,
-            );
+            let functionCall = null;
+            try {
+              functionCall = simnet.callPublicFn(
+                r.rendezvousContractId,
+                selectedFunction.name,
+                r.selectedFunctionsArgsList[index],
+                sutCallerAddress,
+              );
+            } catch (error) {
+              statistics.sut!.thrown++;
+              throw error;
+            }
 
             const functionCallResultJson = cvToJSON(functionCall.result);
 

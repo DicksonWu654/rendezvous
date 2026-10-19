@@ -80,16 +80,17 @@ export const main = async () => {
 
   logWarnings(radio, runConfig.warnings);
 
-  // The reporter emits `unchecked` with the names of tests or invariants
-  // that had no passing check. Treat that as a failure only on request.
+  // Unchecked tests and inconclusive campaigns fail only on request.
   if (runConfig.failOnUnchecked) {
-    radio.on("unchecked", () => {
-      radio.emit(
-        "logFailure",
-        "Failing the run because of --fail-on-unchecked.\n",
-      );
-      process.exitCode = 1;
-    });
+    for (const event of ["unchecked", "inconclusive"]) {
+      radio.on(event, () => {
+        radio.emit(
+          "logFailure",
+          "Failing the run because of --fail-on-unchecked.\n",
+        );
+        process.exitCode = 1;
+      });
+    }
   }
 
   const manifestPath = join(

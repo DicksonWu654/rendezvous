@@ -29,6 +29,7 @@ export const helpMessage = `
     --bail        Stop on first failure
     --fail-on-unchecked
                   Fail if a test or invariant was never checked
+                  Also fail if every public call throws in invariant testing.
     -h, --help    Show this message
 
   Learn more: https://stx-labs.github.io/rendezvous/

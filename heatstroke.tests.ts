@@ -819,7 +819,7 @@ describe("Unchecked tests and invariants reporting", () => {
         type,
         type === "test"
           ? { test: { ...counts, discarded: zero } }
-          : { invariant: counts, sut: counts },
+          : { invariant: counts, sut: { ...counts, thrown: 0 } },
       );
       return {
         logs: logs.join("\n"),

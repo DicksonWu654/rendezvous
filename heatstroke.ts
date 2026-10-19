@@ -193,6 +193,23 @@ export const reporter = (
       .filter(([, count]) => count === 0)
       .map(([name]) => name);
 
+    const sut = statistics.sut;
+    const allCallsThrew =
+      type === "invariant" &&
+      sut !== undefined &&
+      sut.thrown > 0 &&
+      computeTotalCount(sut.successful) === 0 &&
+      sut.thrown === computeTotalCount(sut.failed);
+
+    if (allCallsThrew) {
+      radio.emit(
+        "logInfo",
+        `\nWarning: inconclusive after ${numRuns} runs: ` +
+          "every public call threw.\n",
+      );
+      radio.emit("inconclusive");
+    }
+
     if (unchecked.length > 0) {
       const reason =
         type === "invariant"
@@ -203,7 +220,7 @@ export const reporter = (
         `\nWarning: not checked after ${numRuns} runs: ${unchecked.join(", ")}.\n${reason}\n`,
       );
       radio.emit("unchecked", unchecked);
-    } else {
+    } else if (!allCallsThrew) {
       radio.emit(
         "logMessage",
         green(
